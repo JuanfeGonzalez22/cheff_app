@@ -64,6 +64,7 @@ fun ChefConnectApp() {
             val category = backStackEntry.arguments?.getString("category") ?: return@composable
             MealsGridScreen(
                 category = category,
+                onBack = { navController.popBackStack() },
                 onMealClick = { mealId ->
                     navController.navigate("mealDetail/$mealId")
                 }
@@ -76,7 +77,10 @@ fun ChefConnectApp() {
             deepLinks = listOf(navDeepLink { uriPattern = "chefapp://mealDetail/{mealId}" })
         ) { backStackEntry ->
             val mealId = backStackEntry.arguments?.getString("mealId") ?: return@composable
-            MealDetailScreen(mealId = mealId)
+            MealDetailScreen(
+                mealId = mealId,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

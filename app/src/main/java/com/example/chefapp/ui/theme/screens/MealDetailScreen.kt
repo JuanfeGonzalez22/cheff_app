@@ -30,7 +30,8 @@ import com.example.chefapp.ui.theme.viewModel.MealDetailViewModel
 @Composable
 fun MealDetailScreen(
     mealId: String,
-    viewModel: MealDetailViewModel = viewModel()
+    viewModel: MealDetailViewModel = viewModel(),
+    onBack: () -> Unit
 ) {
     LaunchedEffect(mealId) {
         viewModel.loadMealDetail(mealId)
@@ -40,6 +41,7 @@ fun MealDetailScreen(
 
     MealDetailContent(
         detailState = detailState,
+        onBack = onBack,
         onRetry = { viewModel.loadMealDetail(mealId) }
     )
 }
@@ -48,6 +50,7 @@ fun MealDetailScreen(
 @Composable
 fun MealDetailContent(
     detailState: UIState<MealDetail>,
+    onBack: () -> Unit,
     onRetry: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().background(ChefBackground)) {
@@ -76,7 +79,7 @@ fun MealDetailContent(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 IconButton(
-                                    onClick = { /* Back handled by NavHost or passed lambda */ },
+                                    onClick = onBack,
                                     modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.5f))
                                 ) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
@@ -301,6 +304,7 @@ fun MealDetailPreview() {
                     ingredients = listOf("Salmon" to "2 pieces", "Asparagus" to "1 bunch")
                 )
             ),
+            onBack = {},
             onRetry = {}
         )
     }

@@ -33,6 +33,7 @@ import com.example.chefapp.ui.theme.viewModel.MealsViewModel
 fun MealsGridScreen(
     category: String,
     viewModel: MealsViewModel = viewModel(),
+    onBack: () -> Unit,
     onMealClick: (String) -> Unit
 ) {
     LaunchedEffect(category) {
@@ -44,6 +45,7 @@ fun MealsGridScreen(
     MealsGridScreenContent(
         category = category,
         mealsState = mealsState,
+        onBack = onBack,
         onRetry = { viewModel.retryLoad() },
         onMealClick = onMealClick
     )
@@ -54,6 +56,7 @@ fun MealsGridScreen(
 fun MealsGridScreenContent(
     category: String,
     mealsState: UIState<List<Meal>>,
+    onBack: () -> Unit,
     onRetry: () -> Unit,
     onMealClick: (String) -> Unit
 ) {
@@ -70,7 +73,7 @@ fun MealsGridScreenContent(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { /* Back handled by NavHost */ }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = ChefSecondary)
                     }
                 },
@@ -231,6 +234,7 @@ fun MealsGridScreenPreview() {
                     Meal("3", "Beef Wellington", "")
                 )
             ),
+            onBack = {},
             onRetry = {},
             onMealClick = {}
         )
