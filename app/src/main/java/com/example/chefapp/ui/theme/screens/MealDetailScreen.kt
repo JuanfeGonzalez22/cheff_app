@@ -38,10 +38,18 @@ fun MealDetailScreen(
     }
 
     val detailState by viewModel.detailState.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
 
     MealDetailContent(
         detailState = detailState,
+        isFavorite = isFavorite,
         onBack = onBack,
+        onFavoriteToggle = { 
+            val current = (detailState as? UIState.Success)?.data
+            if (current != null) {
+                viewModel.toggleFavorite(current)
+            }
+        },
         onRetry = { viewModel.loadMealDetail(mealId) }
     )
 }
@@ -50,7 +58,9 @@ fun MealDetailScreen(
 @Composable
 fun MealDetailContent(
     detailState: UIState<MealDetail>,
+    isFavorite: Boolean,
     onBack: () -> Unit,
+    onFavoriteToggle: () -> Unit,
     onRetry: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().background(ChefBackground)) {
@@ -85,10 +95,14 @@ fun MealDetailContent(
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
                                 }
                                 IconButton(
-                                    onClick = { /* Save */ },
+                                    onClick = onFavoriteToggle,
                                     modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.5f))
                                 ) {
-                                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Save", tint = Color.Black)
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        tint = if (isFavorite) Color.Red else Color.Black
+                                    )
                                 }
                             }
                         }
@@ -304,7 +318,9 @@ fun MealDetailPreview() {
                     ingredients = listOf("Salmon" to "2 pieces", "Asparagus" to "1 bunch")
                 )
             ),
+            isFavorite = true,
             onBack = {},
+            onFavoriteToggle = {},
             onRetry = {}
         )
     }

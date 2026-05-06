@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,20 +25,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.chefapp.data.model.Category
+import com.example.chefapp.data.model.Meal
 import com.example.chefapp.data.model.UIState
 import com.example.chefapp.ui.theme.theme.*
 import com.example.chefapp.ui.theme.viewModel.CategoriesViewModel
+import com.example.chefapp.ui.theme.viewModel.SearchViewModel
 
 @Composable
 fun CategoriesScreen(
-    viewModel: CategoriesViewModel = viewModel(),
-    onCategoryClick: (String) -> Unit
+    categoriesViewModel: CategoriesViewModel = viewModel(),
+    searchViewModel: SearchViewModel = viewModel(),
+    onCategoryClick: (String) -> Unit,
+    onMealClick: (String) -> Unit
 ) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -51,18 +57,34 @@ fun CategoriesScreen(
         permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    val categoriesState by viewModel.categoriesState.collectAsState()
-    CategoriesScreenContent(state = categoriesState, onCategoryClick = onCategoryClick)
+    val categoriesState by categoriesViewModel.categoriesState.collectAsState()
+    val searchState by searchViewModel.searchState.collectAsState()
+
+    var searchQuery by remember { mutableStateOf("") }
+
+    CategoriesScreenContent(
+        categoriesState = categoriesState,
+        searchState = searchState,
+        searchQuery = searchQuery,
+        onSearchQueryChange = {
+            searchQuery = it
+            searchViewModel.searchMeals(it)
+        },
+        onCategoryClick = onCategoryClick,
+        onMealClick = onMealClick
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreenContent(
-    state: UIState<List<Category>>,
-    onCategoryClick: (String) -> Unit
+    categoriesState: UIState<List<Category>>,
+    searchState: UIState<List<Meal>>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onCategoryClick: (String) -> Unit,
+    onMealClick: (String) -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -116,7 +138,7 @@ fun CategoriesScreenContent(
 
                     OutlinedTextField(
                         value = searchQuery,
-                        onValueChange = { searchQuery = it },
+                        onValueChange = onSearchQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(24.dp))
@@ -135,54 +157,129 @@ fun CategoriesScreenContent(
                 }
             }
 
-            item {
-                if (state is UIState.Success) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(state.data) { category ->
-                            FilterChip(
-                                selected = false,
-                                onClick = { onCategoryClick(category.strCategory) },
-                                label = { Text(category.strCategory) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = ChefTertiary,
-                                    labelColor = ChefSecondary
-                                ),
-                                border = null,
-                                shape = RoundedCornerShape(16.dp)
+            if (searchQuery.isEmpty()) {
+                // Mostrar Categorías
+                item {
+                    if (categoriesState is UIState.Success) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            items(categoriesState.data) { category ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { onCategoryClick(category.strCategory) },
+                                    label = { Text(category.strCategory) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = ChefTertiary,
+                                        labelColor = ChefSecondary
+                                    ),
+                                    border = null,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                when (categoriesState) {
+                    is UIState.Loading -> {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = ChefPrimary)
+                            }
+                        }
+                    }
+                    is UIState.Success -> {
+                        gridItems(categoriesState.data) { category ->
+                            CategoryCard(
+                                category = category,
+                                onClick = { onCategoryClick(category.strCategory) }
                             )
+                        }
+                    }
+                    is UIState.Error -> {
+                        item {
+                            Text(categoriesState.message, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            } else {
+                // Mostrar Resultados de Búsqueda
+                item {
+                    Text(
+                        "Search Results",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = ChefDarkGreen)
+                    )
+                }
+
+                when (val state = searchState) {
+                    is UIState.Loading -> {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = ChefPrimary)
+                            }
+                        }
+                    }
+                    is UIState.Success -> {
+                        if (state.data.isEmpty()) {
+                            item {
+                                Text("No recipes found for \"$searchQuery\"", color = ChefGrey, modifier = Modifier.padding(vertical = 16.dp))
+                            }
+                        } else {
+                            gridItems(state.data) { meal ->
+                                SearchResultCard(meal = meal, onClick = { onMealClick(meal.idMeal) })
+                            }
+                        }
+                    }
+                    is UIState.Error -> {
+                        item {
+                            Text(state.message, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
 
-            when (state) {
-                is UIState.Loading -> {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = ChefPrimary)
-                        }
-                    }
-                }
-                is UIState.Success -> {
-                    gridItems(state.data) { category ->
-                        CategoryCard(
-                            category = category,
-                            onClick = { onCategoryClick(category.strCategory) }
-                        )
-                    }
-                }
-                is UIState.Error -> {
-                    item {
-                        Text(state.message, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-            
             item {
                 Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchResultCard(meal: Meal, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = ChefSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = meal.strMealThumb,
+                contentDescription = meal.strMeal,
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = meal.strMeal,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = ChefDarkGreen),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Star, contentDescription = null, tint = ChefPrimary, modifier = Modifier.size(14.dp))
+                    Text(" 4.8", style = MaterialTheme.typography.labelSmall, color = ChefGrey)
+                }
             }
         }
     }
@@ -259,14 +356,18 @@ fun CategoryCard(category: Category, onClick: () -> Unit) {
 fun CategoriesScreenPreview() {
     ChefAppTheme {
         CategoriesScreenContent(
-            state = UIState.Success(
+            categoriesState = UIState.Success(
                 listOf(
                     Category("1", "Beef", "https://www.themealdb.com/images/category/beef.png", ""),
                     Category("2", "Chicken", "", ""),
                     Category("3", "Dessert", "", "")
                 )
             ),
-            onCategoryClick = {}
+            searchState = UIState.Success(emptyList()),
+            searchQuery = "",
+            onSearchQueryChange = {},
+            onCategoryClick = {},
+            onMealClick = {}
         )
     }
 }
